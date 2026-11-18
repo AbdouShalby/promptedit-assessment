@@ -17,7 +17,12 @@ background.
 | 19:22 | 19:28 | Credit balances, ledger, UI, tests; browser check; one real end-to-end run through the database queue (no key: 401) |
 | 19:28 | 19:35 | Independent review in the background while writing README and docs; review fixes and 7 new tests; checklist |
 
-Total: about 48 minutes of wall-clock time.
+| 19:44 | 20:02 | Live run with the local key and a tunnel: tests 1 to 13 of the matrix (all keywords, 9 size and quality combinations, reference images, 5 at once, worker stopped, webhook endpoint down, dashboard resends); real error bodies and headers read with curl |
+| 20:02 | 20:10 | Second user, $0 user, admin report, phone width in a 390 px frame; cost of every generation recomputed outside the app and compared with `GET /v1/usage`; real payloads saved as fixtures with 4 tests; stale credit message fixed |
+| 20:10 | 20:17 | Full suite failed beside the running dev server (Inertia SSR through Vite): fixed; dev stack restarted; one more generation and a final reconciliation; checklist, verify-live and README updated |
 
-Not included: writing the plan (done before this session), and everything still open in
-[verify-live.md](verify-live.md): the live matrix, the tunnel, the deployment.
+Total: about 48 minutes for the build and about 33 minutes for the live run, wall-clock.
+
+Not included: writing the plan (done before the first session), setting up the Pixelforge
+key and the tunnel, and what is still open: the deployment and the production run of the
+matrix.

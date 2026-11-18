@@ -9,9 +9,12 @@ Guiding rule: a small app that records every cost exactly right beats a bigger o
 does not. Every choice below prefers small, explainable and correct over clever.
 
 > **Status.** Everything in this repository is built and covered by automated tests
-> (183 tests, run on Postgres). It has **not yet been run against the live Pixelforge
-> API with a real key**, and it is not deployed yet. What still has to be checked live
-> is listed in [docs/verify-live.md](docs/verify-live.md); the state of every
+> (187 tests, run on Postgres). On 2026-11-18 it was run locally against the live
+> Pixelforge API (local key, webhooks through a tunnel): 24 generations, every failure
+> keyword, duplicate and late webhooks, a stopped worker and an unreachable webhook
+> endpoint. Provider cost in the app, `1.511880000`, equals `GET /v1/usage` for that
+> key. It is **not deployed yet**, so nothing has been checked on a production server.
+> The run is recorded in [docs/verify-live.md](docs/verify-live.md); the state of every
 > requirement is in [docs/checklist.md](docs/checklist.md).
 
 ## What it does
@@ -283,7 +286,9 @@ php artisan test
 
 Tests run on Postgres and never call Pixelforge: every HTTP call is faked, and a stray
 request fails the test. `tests/Fixtures/pricing.json` is a real capture of
-`GET /v1/pricing`; the other payloads are built from the API documentation.
+`GET /v1/pricing`, and `tests/Fixtures/live` holds webhook events and a `GET /v1/usage`
+response captured from the real API (image URL signature removed). The other payloads
+are built from the API documentation and have the same shape.
 
 Other checks: `composer lint:check` (Pint), `composer types:check` (PHPStan),
 `npm run check` (lint and format), `npm run types:check` (vue-tsc), `npm run build`.
@@ -305,7 +310,22 @@ More checks: submit 5 `[slow] [succeed]` generations quickly (3 run, 2 wait, all
 resend a delivery from the Pixelforge dashboard (200, nothing changes); stop the queue
 worker, generate, start it again (the row catches up); point the webhook URL at a dead
 path (the reconciler still settles the row); post a webhook with a wrong signature (401,
-nothing stored). The full matrix is in [docs/verify-live.md](docs/verify-live.md).
+nothing stored). The full matrix, with the results of the local run, is in
+[docs/verify-live.md](docs/verify-live.md).
+
+## Known gaps
+
+- Not deployed yet; the matrix has been run locally only.
+- An unconfirmed submission is repaired only by its webhook, not by polling.
+- A snapshot that cannot be priced stays Processing and keeps one of the 3 slots.
+- A late-claimed generation is charged without a new hold, so a balance can go slightly
+  below zero.
+- No first-in-first-out fairness between users waiting for a slot.
+- While a submission is retried after a 503, its card says "Waiting for a free slot".
+- The per-minute and daily limits, a create call that times out, and a webhook that
+  beats the create response were never produced by the real API in the local run; they
+  are covered by automated tests only.
+- Phone width was checked in a 390 px frame, not on a real phone.
 
 ## How AI tools were used
 
