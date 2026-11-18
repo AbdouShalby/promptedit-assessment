@@ -48,7 +48,7 @@ class ReportTest extends TestCase
 
         foreach ($costByDate as $date => $cost) {
             $data[] = ['date' => $date, 'generations' => 1, 'input_text_tokens' => 0, 'input_image_tokens' => 0,
-                'output_tokens' => 0, 'reasoning_tokens' => 0, 'total_tokens' => 0, 'cost_usd' => $cost];
+                'output_tokens' => 0, 'reasoning_tokens' => 0, 'cost_usd' => $cost];
         }
 
         Http::fake([self::API.'/usage*' => Http::response(['object' => 'usage', 'data' => $data, 'total' => ['cost_usd' => '0.000000000']])]);
