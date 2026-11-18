@@ -57,11 +57,18 @@ class PixelforgeClient
      */
     public function createGeneration(array $payload, string $idempotencyKey): array
     {
-        return $this->send(
+        $generation = $this->send(
             fn (PendingRequest $http) => $http
                 ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                 ->post('/generations', $payload)
         );
+
+        if (! isset($generation['id'], $generation['status'])) {
+            // Accepted, but we cannot read what was created: treat like a timeout (outcome unknown).
+            throw new PixelforgeException('unreadable_response', message: 'Create returned no generation object.');
+        }
+
+        return $generation;
     }
 
     /** @return array<string, mixed> the generation object */

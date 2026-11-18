@@ -13,6 +13,23 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # Tests run on Postgres, like production (same port and names as phpunit.xml).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: promptedit_test
+          POSTGRES_USER: promptedit
+          POSTGRES_PASSWORD: promptedit
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U promptedit" --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DB_DATABASE: promptedit_test
+      DB_PASSWORD: promptedit
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

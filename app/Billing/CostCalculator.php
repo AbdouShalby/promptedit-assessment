@@ -3,6 +3,7 @@
 namespace App\Billing;
 
 use App\Support\Nano;
+use InvalidArgumentException;
 
 /**
  * The only place where tokens become money.
@@ -21,6 +22,7 @@ final class CostCalculator
      * @param  array<string, string>  $rates  USD per 1M tokens as decimal strings, same keys
      * @return int exact provider cost in nanodollars
      *
+     * @throws InvalidArgumentException if a token count or rate is missing or not a whole number
      * @throws InexactCostException if the result is not a whole nanodollar (never rounds)
      */
     public static function providerCost(array $usage, array $rates): int
@@ -28,7 +30,14 @@ final class CostCalculator
         $nanoTimesMillion = 0;
 
         foreach (self::TOKEN_TYPES as $type) {
-            $nanoTimesMillion += (int) $usage[$type] * Nano::fromDecimal((string) $rates[$type]);
+            $tokens = $usage[$type] ?? null;
+
+            // A missing or odd count must stop us: guessing would understate the cost silently.
+            if (! is_int($tokens) || $tokens < 0 || ! isset($rates[$type])) {
+                throw new InvalidArgumentException("Missing or invalid token count or rate for [{$type}].");
+            }
+
+            $nanoTimesMillion += $tokens * Nano::fromDecimal((string) $rates[$type]);
         }
 
         if ($nanoTimesMillion % self::TOKENS_PER_RATE_UNIT !== 0) {

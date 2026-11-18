@@ -71,9 +71,19 @@ class SubmitGeneration implements ShouldQueue
             return;
         }
 
+        // Until Pixelforge answers, we do not know whether this call created anything. The flag is
+        // saved first, so a worker that dies mid-call can never lead to a "not charged" promise.
+        $wasUnknown = $generation->submit_outcome_unknown;
+        $generation->update(['submit_outcome_unknown' => true]);
+
         try {
             $snapshot = $pixelforge->createGeneration($generation->providerPayload(), $generation->uuid);
         } catch (PixelforgeException $e) {
+            if (! $e->isAmbiguous()) {
+                // A clear rejection: this call created nothing. Earlier calls may still be unknown.
+                $generation->update(['submit_outcome_unknown' => $wasUnknown]);
+            }
+
             $this->handleError($snapshots, $generation, $e);
 
             return;
@@ -88,7 +98,7 @@ class SubmitGeneration implements ShouldQueue
 
         match (true) {
             // Rejected before anything was created: safe to retry, and safe to say "not charged".
-            in_array($code, ['concurrency_limit_exceeded', 'rate_limit_exceeded'], true) => $this->retryLater(
+            in_array($code, ['concurrency_limit_exceeded', 'rate_limit_exceeded', 'http_429'], true) => $this->retryLater(
                 $snapshots, $generation, $e, 'rate_limit_attempts', config('pixelforge.max_rate_limit_attempts')),
 
             $code === 'overloaded' => $this->retryLater(
@@ -96,7 +106,7 @@ class SubmitGeneration implements ShouldQueue
 
             // Timeout or unknown 5xx: the generation may exist. Retrying with the same key is still safe.
             $e->isAmbiguous() => $this->retryLater(
-                $snapshots, $generation, $e, 'submit_attempts', config('pixelforge.max_overload_attempts'), outcomeUnknown: true),
+                $snapshots, $generation, $e, 'submit_attempts', config('pixelforge.max_overload_attempts')),
 
             $code === 'content_policy_violation' => $snapshots->failWithoutProvider($generation, $code, self::MESSAGE_POLICY),
 
@@ -116,9 +126,8 @@ class SubmitGeneration implements ShouldQueue
         PixelforgeException $e,
         string $counter,
         int $maxAttempts,
-        bool $outcomeUnknown = false,
     ): void {
-        $generation->increment($counter, 1, $outcomeUnknown ? ['submit_outcome_unknown' => true] : []);
+        $generation->increment($counter);
 
         if ($generation->{$counter} >= $maxAttempts) {
             $this->giveUp($snapshots, $generation);

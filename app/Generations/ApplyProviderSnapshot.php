@@ -4,6 +4,7 @@ namespace App\Generations;
 
 use App\Billing\CostCalculator;
 use App\Billing\CreditLedger;
+use App\Jobs\SubmitGeneration;
 use App\Models\Generation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +111,10 @@ class ApplyProviderSnapshot
                 return $row;
             }
 
+            // If any create call had an unknown outcome, the cost is unknown whatever the caller believes.
+            $nothingWasCreated = $nothingWasCreated && ! $row->submit_outcome_unknown;
+            $message = $nothingWasCreated ? $message : SubmitGeneration::MESSAGE_UNCONFIRMED;
+
             $row->fill([
                 'status' => GenerationStatus::Failed,
                 'error_code' => $errorCode,
@@ -138,7 +143,12 @@ class ApplyProviderSnapshot
         // Rates come from the generation itself (fixed at creation), never from today's price list.
         $cost = CostCalculator::providerCost($usage, $rates);
         $charge = CostCalculator::charge($cost, $row->markup_bps);
-        $completedAt = self::time($snapshot['completed_at'] ?? null) ?? now();
+        $completedAt = self::time($snapshot['completed_at'] ?? null);
+
+        if ($completedAt === null) {
+            // The billing day comes from Pixelforge's clock, never from ours.
+            throw new IncompleteSnapshotException("Succeeded snapshot without completed_at for {$row->uuid}");
+        }
 
         if ($charge < $row->estimated_min_charge_nano || $charge > $row->estimated_max_charge_nano) {
             Log::warning('Actual charge is outside the estimate', ['generation' => $row->uuid, 'charge_nano' => $charge]);

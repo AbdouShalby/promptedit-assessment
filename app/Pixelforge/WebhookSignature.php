@@ -15,19 +15,38 @@ final class WebhookSignature
             return false;
         }
 
-        if (! preg_match('/^t=(\d{1,12}),v1=([0-9a-f]{64})$/', trim($header), $parts)) {
-            return false;
+        // Read the header as key=value pairs, so spacing or an extra element does not reject a valid delivery.
+        $timestamp = null;
+        $signatures = [];
+
+        foreach (explode(',', $header) as $pair) {
+            [$key, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
+
+            if ($key === 't') {
+                $timestamp = $value;
+            } elseif ($key === 'v1') {
+                $signatures[] = strtolower($value);
+            }
         }
 
-        [$timestamp, $signature] = [(int) $parts[1], $parts[2]];
+        if ($timestamp === null || ! ctype_digit($timestamp) || strlen($timestamp) > 12 || $signatures === []) {
+            return false;
+        }
 
         // Reject replays of old deliveries (each real attempt is freshly signed).
-        if (abs(time() - $timestamp) > $toleranceSeconds) {
+        if (abs(time() - (int) $timestamp) > $toleranceSeconds) {
             return false;
         }
 
+        // Sign the timestamp exactly as received.
         $expected = hash_hmac('sha256', $timestamp.'.'.$rawBody, $secret);
 
-        return hash_equals($expected, $signature);   // constant-time compare
+        foreach ($signatures as $signature) {
+            if (hash_equals($expected, $signature)) {   // constant-time compare
+                return true;
+            }
+        }
+
+        return false;
     }
 }
