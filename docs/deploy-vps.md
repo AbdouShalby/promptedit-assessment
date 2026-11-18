@@ -2,12 +2,80 @@
 
 Author: Abdelrhman Shalby
 
-Target: Ubuntu 24.04, 2 vCPU, 8 GB RAM, with **other sites already running**. Stack:
-Nginx, PHP-FPM 8.3, Postgres 16, Supervisor (queue worker), cron (scheduler).
+Target: Ubuntu 24.04, 2 vCPU, 8 GB RAM, with **other sites already running**.
 
-> **Status: NOT RUN.** These steps were written from what the app needs and have not
-> been executed on the server. Run them one at a time and read each output before the
-> next step. Nothing here should be pasted as one block.
+> **Status: DEPLOYED on 2026-11-18** at <https://pixel.sroforge.tech>. The numbered steps
+> further down were written before the server was looked at. The server turned out to be
+> different from what they assume, so the deployment differs in the places listed in
+> "As deployed". Where the two disagree, "As deployed" is what is running.
+
+## As deployed (2026-11-18)
+
+Stack: Nginx, PHP-FPM 8.3, Postgres 18 in Docker, systemd (queue worker), cron
+(scheduler), Cloudflare in front.
+
+| Topic | Written steps | What was done, and why |
+|---|---|---|
+| PHP | "Reuse 8.3 or install it" | The server's default `php` is 8.2 and other sites depend on it. PHP 8.3 (FPM and CLI) was installed **next to it**, and the `php` alternative is pinned to 8.2 (`update-alternatives --query php` shows status `manual`, value `/usr/bin/php8.2`), so installing 8.3 did not change what `php` means for anything else |
+| Calling PHP 8.3 | `php artisan ...` | Every command for this app names the binary: `/usr/bin/php8.3 artisan ...` in the systemd unit and in cron |
+| Frontend build | `npm ci && npm run build` | The Wayfinder Vite plugin runs plain `php artisan` during the build, which would have picked 8.2. A per-user shim solves it without touching the system: `/var/www/promptedit/bin/php` is a symlink to `/usr/bin/php8.3`, and that directory is put first in `PATH` only for this user's commands. The build ran on the server's existing Node 20 |
+| Paths | `/srv/promptedit` | `/var/www/promptedit` is the user's home, the app is in `/var/www/promptedit/app`, `.env` has mode 600 |
+| Database | Host Postgres 16, own role and database | The host has no Postgres of its own. A dedicated container `promptedit-db` was started from a `postgres:18` image that was already on the server (nothing pulled), published on `127.0.0.1:55432` only, data in the named volume `promptedit_pgdata`, restart policy `unless-stopped`. Its credentials are in `/etc/promptedit/db.env`. No other project's container or database is used |
+| Queue worker | Supervisor | Supervisor is not installed, and adding it for one process was not worth it. The worker is a systemd unit, `/etc/systemd/system/promptedit-queue.service`: user `promptedit`, `/usr/bin/php8.3 artisan queue:work --sleep=1 --tries=1 --max-time=3600`, `Restart=always` |
+| Scheduler | The user's crontab | `/etc/cron.d/promptedit-scheduler`, one line, run as `promptedit`, every minute. Checked: the `schedule:run` process stays alive for the whole minute and runs the 15-second reconciler inside it (verify-live F8) |
+| FPM pool | `pm = ondemand` | Own pool `/etc/php/8.3/fpm/pool.d/promptedit.conf`, own socket, `pm = dynamic`, at most 6 children |
+| HTTPS | Certbot | The domain is proxied by Cloudflare. Nginx serves a Cloudflare origin certificate on 443 and redirects 80 to 443; visitor addresses are restored from Cloudflare's header. Certbot is not used for this site |
+| Webhooks | Final HTTPS URL | `https://pixel.sroforge.tech/api/webhooks/pixelforge`. Cloudflare's bot protection does not interfere: every delivery of the production run was answered 200 |
+
+Files that belong to this app on the server, and nothing else was changed:
+`/var/www/promptedit`, `/etc/promptedit`, `/etc/nginx/sites-available/promptedit` (and
+its link in `sites-enabled`), `/etc/php/8.3/fpm/pool.d/promptedit.conf`,
+`/etc/systemd/system/promptedit-queue.service`, `/etc/cron.d/promptedit-scheduler`, the
+container `promptedit-db` and its volume.
+
+### Updating the deployed app
+
+As root, one command at a time:
+
+```bash
+cd /var/www/promptedit/app
+RUN="sudo -u promptedit -H env PATH=/var/www/promptedit/bin:$PATH"
+$RUN git pull --ff-only
+$RUN composer install --no-dev --optimize-autoloader
+$RUN npm ci
+$RUN npm run build
+$RUN php artisan migrate --force
+$RUN php artisan config:cache
+$RUN php artisan route:cache
+$RUN php artisan view:cache
+systemctl restart promptedit-queue
+```
+
+A change to documentation only needs the `git pull`. Reload instead of restart for the
+shared services, and only when their files changed: `nginx -t && systemctl reload nginx`,
+`systemctl reload php8.3-fpm`.
+
+Never run `migrate:fresh` or reset the production database: usage stays on the
+Pixelforge key and the admin report would stop matching.
+
+### Removing the deployed app (nothing else is touched)
+
+```bash
+systemctl disable --now promptedit-queue && rm /etc/systemd/system/promptedit-queue.service && systemctl daemon-reload
+rm /etc/cron.d/promptedit-scheduler
+rm /etc/nginx/sites-enabled/promptedit /etc/nginx/sites-available/promptedit && nginx -t && systemctl reload nginx
+rm /etc/php/8.3/fpm/pool.d/promptedit.conf && systemctl reload php8.3-fpm
+```
+
+The container `promptedit-db`, its volume `promptedit_pgdata`, `/etc/promptedit` and
+`/var/www/promptedit` hold data: back up or delete them only on purpose.
+
+---
+
+# The steps as first written (before the server was inspected)
+
+Kept for a server that matches their assumptions: host Postgres, Supervisor, Certbot and
+PHP 8.3 as the default `php`. They were **not** run as written.
 
 ## Rules that protect the other sites
 
