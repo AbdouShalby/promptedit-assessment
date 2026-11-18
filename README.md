@@ -13,9 +13,17 @@ does not. Every choice below prefers small, explainable and correct over clever.
 > Pixelforge API (local key, webhooks through a tunnel): 24 generations, every failure
 > keyword, duplicate and late webhooks, a stopped worker and an unreachable webhook
 > endpoint. Provider cost in the app, `1.511880000`, equals `GET /v1/usage` for that
-> key. It is **not deployed yet**, so nothing has been checked on a production server.
-> The run is recorded in [docs/verify-live.md](docs/verify-live.md); the state of every
-> requirement is in [docs/checklist.md](docs/checklist.md).
+> key.
+>
+> **Live: <https://pixel.sroforge.tech>** (a shared VPS behind Cloudflare). On 2026-11-18
+> a reduced matrix was run there with the production key: every keyword once, 5 at once,
+> reference images. 11 rows: 8 succeeded, 3 failed (`[fail]`, `[blocked]`,
+> `[overloaded]`), nothing in flight. Provider cost in the app, `0.893562500`, equals
+> `GET /v1/usage` for the production key; users were charged `1.116953125`, exactly 1.25
+> times that. That run drove the app's real routes on the server as the demo user; the
+> pages were **not** clicked through in a browser on production (see Known gaps).
+> Both runs are recorded in [docs/verify-live.md](docs/verify-live.md); the state of
+> every requirement is in [docs/checklist.md](docs/checklist.md).
 
 ## What it does
 
@@ -310,12 +318,19 @@ More checks: submit 5 `[slow] [succeed]` generations quickly (3 run, 2 wait, all
 resend a delivery from the Pixelforge dashboard (200, nothing changes); stop the queue
 worker, generate, start it again (the row catches up); point the webhook URL at a dead
 path (the reconciler still settles the row); post a webhook with a wrong signature (401,
-nothing stored). The full matrix, with the results of the local run, is in
-[docs/verify-live.md](docs/verify-live.md).
+nothing stored). The full matrix, with the results of the local run and of the
+production run, is in [docs/verify-live.md](docs/verify-live.md).
 
 ## Known gaps
 
-- Not deployed yet; the matrix has been run locally only.
+- On production the matrix was reduced and was driven through the app's routes on the
+  server, not through a browser: signing in, the live status updates on screen, the Buy
+  credits button and the phone layout were seen in a browser only locally. Dashboard
+  resends, a stopped worker and an unreachable webhook endpoint were also tested only
+  locally.
+- Image links expire 24 hours after a generation finishes; after that the card shows the
+  "expired" placeholder. The images of the production run expire on 2026-11-19 around
+  19:00 UTC.
 - An unconfirmed submission is repaired only by its webhook, not by polling.
 - A snapshot that cannot be priced stays Processing and keeps one of the 3 slots.
 - A late-claimed generation is charged without a new hold, so a balance can go slightly

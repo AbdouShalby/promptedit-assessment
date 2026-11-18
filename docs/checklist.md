@@ -5,11 +5,14 @@ Author: Abdelrhman Shalby. Last updated 2026-11-18.
 - **DONE** = built and proven by the named automated test (187 tests, all passing on Postgres).
 - **DONE, live** = also seen working against the real Pixelforge API on 2026-11-18 with the
   local key and a tunnel. The evidence for each "test N" is in [verify-live.md](verify-live.md).
+- **DONE, production** = also seen on the deployed site, <https://pixel.sroforge.tech>,
+  with the production key on 2026-11-18 (verify-live.md, section F).
 - **NOT DONE** = not done yet, with the reason.
 
-The local live run closed every item that needed a real key. What is still open needs
-the server: deployment, the public repository, and one more run of the matrix on
-production.
+The local live run closed every item that needed a real key. The app is now deployed and
+a reduced matrix was run on production. What is still open: the production pages have
+not been clicked through in a browser (sign-in, live status on screen, Buy credits
+button, phone width); those were seen in a browser only locally.
 
 Test files are under `tests/`. Short names: `Nano` = Unit/NanoTest, `Cost` =
 Unit/CostCalculatorTest, `Est` = Unit/EstimatorTest, `Sig` = Unit/WebhookSignatureTest,
@@ -33,9 +36,9 @@ Feature/Generations/ApplyProviderSnapshotTest, `Job` = Feature/Generations/Submi
 | P7 | History with live status, estimate, actual cost, image | DONE, live | Page tests; live test 1: Queued, Processing, Succeeded appeared without a reload, then the image |
 | P8 | Image expiry handled | DONE | Page: `...an_expired_image_is_hidden`; placeholder seen in browser |
 | P9 | Clear messages for what went wrong | DONE | Job tests assert every message; seen in browser |
-| P10 | Deployed publicly with generations left on it | NOT DONE | Not deployed yet (waiting for approval). Steps: [deploy-vps.md](deploy-vps.md) |
-| P11 | Public GitHub repo with README | NOT DONE | Repo is local only (not pushed, by instruction). README written |
-| P12 | Admin report per day and user, matching `/v1/usage` | DONE, live | Report: all 9 tests; Live: `the_report_reads_a_real_usage_response`; live test 16: 2026-11-18 shows Match at `1.511880000` for 23 generations |
+| P10 | Deployed publicly with generations left on it | DONE, production | <https://pixel.sroforge.tech>. Left on it: 8 succeeded (all 3 sizes and 3 qualities, one with 2 reference images), 3 failed (`[fail]`, `[blocked]`, `[overloaded]`), nothing in flight. How it was deployed: [deploy-vps.md](deploy-vps.md) |
+| P11 | Public GitHub repo with README | DONE | <https://github.com/AbdouShalby/promptedit-assessment> |
+| P12 | Admin report per day and user, matching `/v1/usage` | DONE, live and production | Report: all 9 tests; Live: `the_report_reads_a_real_usage_response`; live test 16: 2026-11-18 shows Match at `1.511880000` for 23 generations; production F9: Match at `0.893562500` for 8 generations |
 | P13 | Balances, fake Buy credits, block when unaffordable | DONE, live | Balance: all 14 tests; live test 17 |
 
 ## Money
@@ -60,7 +63,7 @@ Feature/Generations/ApplyProviderSnapshotTest, `Job` = Feature/Generations/Submi
 
 | # | Requirement | State | Proof |
 |---|---|---|---|
-| A1 | Bearer key, one key per environment | DONE, live for the local key | Client: `create_sends_the_bearer_key...`. The production key is created at deployment |
+| A1 | Bearer key, one key per environment | DONE, live and production | Client: `create_sends_the_bearer_key...`. Production has its own key, used only by the deployed app |
 | A2 | Only the 5 allowed params | DONE | Job: `success_links_the_row...`, `reference_images_are_left_out...` |
 | A3 | Local validation mirrors the API | DONE | Page: `input_is_validated...`, `a_prompt_of_exactly_4000_characters...` |
 | A4 | Idempotency-Key with identical params on every retry | DONE, live | Job: `success_links_the_row...`; payload built from stored columns; live B6: replay answered 202 with `idempotent-replayed: true` and the same generation |
@@ -91,7 +94,7 @@ Feature/Generations/ApplyProviderSnapshotTest, `Job` = Feature/Generations/Submi
 | W9 | Polling fallback | DONE, live | Recon: all 8 tests; live test 11: 4 generations settled with the webhook endpoint down |
 | W10 | ping and unknown types acknowledged | DONE, live for ping | Hook: `ping_and_unknown_event_types...`; Live: `a_real_ping_is_stored_and_acknowledged`; dashboard ping answered 200 |
 | W11 | Public webhook URL (tunnel) | DONE, live | Cloudflare quick tunnel to the local server; all deliveries of the run came through it |
-| W12 | Final HTTPS URL, no redirect | NOT DONE | Needs the server: deploy steps 7 and 10 |
+| W12 | Final HTTPS URL, no redirect | DONE, production | `https://pixel.sroforge.tech/api/webhooks/pixelforge`, through Cloudflare. All 18 generation events of the production run were received; the dashboard delivery log shows HTTP 200, duplicates included; an unsigned request gets 401 |
 | W13 | Event for an unknown generation | DONE | Hook: `an_event_for_an_unknown_generation...` |
 
 ## Known gaps (accepted, written in the README)
@@ -103,6 +106,7 @@ Feature/Generations/ApplyProviderSnapshotTest, `Job` = Feature/Generations/Submi
 | A late-claimed generation is charged without a new hold | A balance can go slightly below zero |
 | No first-in-first-out fairness between users waiting for a slot | Order of waiting jobs is not guaranteed |
 | Phone width checked in a 390 px frame, not on a real phone | See verify-live E3 |
+| The production pages were not clicked through in a browser | The production run drove the app's real routes on the server as the demo user. Sign-in, live status on screen, the Buy credits button and phone width were seen in a browser only locally |
 | While a submission is being retried after a 503, the card says "Waiting for a free slot" | Wording only; the row still ends with the correct message |
 
 ## Independent review

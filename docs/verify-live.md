@@ -7,9 +7,12 @@ responses. On 2026-11-18 (17:44 to 18:13 UTC) it was run locally against the rea
 with the `local` key, through a Cloudflare quick tunnel for webhooks. This file records
 what was checked, how, and what is still open.
 
+On the same day the app was deployed to <https://pixel.sroforge.tech> and a reduced
+matrix was run there with the production key (18:53 to 19:02 UTC). That run is section F.
+
 Legend: **VERIFIED** = seen working against the real API. **NOT EXERCISED** = the real
 API never produced this case during the run, so it is covered by automated tests only.
-**PENDING** = needs the production server.
+**PENDING** = still open.
 
 Totals of the local run: 26 rows in the app; 24 generations created at Pixelforge
 (23 succeeded, 1 failed); 2 rejected before anything was created (`[blocked]`,
@@ -86,14 +89,58 @@ Not exercised by the live run (automated tests only): `rate_limit_exceeded`,
 `daily_limit_exceeded`, a create call that times out (unknown outcome), a webhook that
 arrives before the create call returns, and an actual cost outside the estimate.
 
-The matrix must be run once more on production with the production key.
+A reduced version of this matrix was then run on production: section F.
 
 ## E. Environment checks
 
 | # | What | State |
 |---|---|---|
-| E1 | The steps in `docs/deploy-vps.md` have never been run | PENDING |
-| E2 | Sub-minute scheduling | VERIFIED locally with `schedule:work` (`last_checked_at` of a running generation moved about every 30 s). PENDING under cron on the server |
+| E1 | Deployment | DONE on 2026-11-18. It differs from the first written steps in several places, listed at the top of `docs/deploy-vps.md` |
+| E2 | Sub-minute scheduling | VERIFIED locally with `schedule:work` (`last_checked_at` of a running generation moved about every 30 s). VERIFIED under cron on the server: the `schedule:run` process started by cron stays alive for its whole minute, and a running generation was polled at 19:00:19, 19:00:46 and 19:01:16 UTC (F8) |
 | E3 | The page at phone width | VERIFIED at 390 px in a same-origin frame (the browser window could not be resized): form, credit box, succeeded and failed cards, pagination and the admin report. No horizontal page scroll; the report table scrolls inside its own box. Not opened on a real phone |
 | E4 | `.github/workflows/tests.yml` has never run on GitHub | PENDING |
 | E5 | The two Pixelforge keys share the account limits (3 concurrent, 500 a day) | Do not run local tests while checking production |
+
+## F. Production run, 2026-11-18, 18:53 to 19:02 UTC
+
+Site: <https://pixel.sroforge.tech> (Nginx and PHP-FPM 8.3 on a shared VPS, Postgres 18,
+queue worker under systemd, scheduler under cron, Cloudflare in front). Key:
+`production`, used only by the deployed app.
+
+**How it was driven.** The generations were submitted on the server as the seeded demo
+user through the app's real routes (`POST /generations`, `POST /credits`,
+`GET /admin/report`), handled in-process by the HTTP kernel: real middleware, CSRF
+check, validation, controller, database queue, worker, Pixelforge, and webhooks coming
+back through Cloudflare. They were **not** typed into a browser. So this run proves the
+production back end and the data each page receives; it does not prove the production
+pages on screen (sign-in form, live status without a reload, Buy credits button, phone
+width). Those were seen in a browser only in the local run (D1, D17, E3).
+
+The matrix was kept small on purpose: each keyword once, 5 at once, reference images.
+Not repeated on production: dashboard resends (D8, D9), a stopped worker (D10), an
+unreachable webhook endpoint (D11), a second user (D15).
+
+| # | Action | Result | What was seen |
+|---|---|---|---|
+| F1 | `a red fox [succeed]`, medium, 1024x1024 | PASS | Submitted at 18:53:12, Processing at 18:53:16, Succeeded at 18:53:23, moved by the two webhooks; cost `0.057325000`, charge `0.071656250`, inside the estimate |
+| F2 | `[fail]` | PASS | Processing, then Failed with the "could not generate this image, not charged" message; charge 0; reserve returned |
+| F3 | `[blocked]` | PASS | Failed within a second with the content policy message; nothing created at Pixelforge; not charged |
+| F4 | `[overloaded]` | PASS | Stayed waiting, 5 attempts in 34 s, then Failed "too busy"; nothing created; not charged |
+| F5 | 5 `[slow] [succeed]` submitted in one go (3 sizes, 3 qualities; one with 2 reference images; one with `[duplicate]`) | PASS | 3 started within 5 s; the fourth started 4 s after the first slot was freed and the fifth 9 s after the next; all 5 succeeded; `rate_limit_attempts` 0 on every row, so no 429 reached the API |
+| F6 | Reference images (inside F5): high, 1536x1024, 2 URLs | PASS | 1,530 input image tokens (2 x 765); cost `0.292590000`, charge `0.365737500`, inside the estimate |
+| F7 | `[duplicate]` (inside F5) | PASS | Dashboard: `processing` and `succeeded` each delivered twice, the second answered `{"received":true,"duplicate":true}`; one stored row per event id; one `charge` entry. Pixelforge also sent unprompted duplicates for two other generations: same result |
+| F8 | Reconciler under cron: one more `[slow] [succeed]`, watched every 4 s | PASS | While Processing, `last_checked_at` moved at 19:00:19, 19:00:46 and 19:01:16, so the 15-second task runs inside cron's one-minute `schedule:run`. The polling path settling a row without any webhook was not forced on production (tested locally, D11) |
+| F9 | Admin report against `GET /v1/usage` (called through the app's own client) | PASS | 2026-11-18: 8 generations, provider cost `0.893562500` on both sides, Match; 2026-11-17: zero on both sides. The demo user gets 403 on `/admin/report` |
+| F10 | Charges | PASS | Each of the 8 costs recomputed in SQL from the stored tokens and rates: 0 differences. Each charge equals its cost x 1.25 exactly (no fraction of a nanodollar occurred, so the round-up rule was not needed). Total charged `1.116953125` = 1.25 x `0.893562500` |
+| F11 | Webhooks through Cloudflare | PASS | All 18 expected generation events arrived and were processed (19 stored with the ping, 19 distinct ids). The dashboard delivery log, read for the latest 13 deliveries, shows HTTP 200 on attempt 1 in 170 to 370 ms; nothing blocked or challenged. An unsigned POST gets 401 |
+| F12 | User with $0 (the admin account), then Buy credits | PASS for the back end | Submit refused and no row created; after the purchase the balance is $5.0000 with one `purchase` entry. The on-screen message was not seen on production |
+| F13 | Estimate for a 400-character prompt, high, 1536x1024, 2 reference URLs | PASS | `$0.3578` to `$0.4674`, exact maximum `0.467343750` |
+| F14 | Housekeeping | PASS | 0 queued jobs, 0 failed jobs; demo balance `8.883046875` = `10` minus the 8 charges, and equals the sum of its ledger entries; 11 reserves, 11 releases |
+
+Left on the site: 8 succeeded, 3 failed, nothing in flight. The image links expire 24
+hours after completion (2026-11-19, about 19:00 UTC); after that the cards show the
+"expired" placeholder.
+
+The application log holds two errors, neither from the app at work: one from the
+deployment (a command run before the migrations) and one from a typo in the temporary
+script used for this run.

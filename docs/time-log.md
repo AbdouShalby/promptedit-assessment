@@ -20,9 +20,13 @@ background.
 | 19:44 | 20:02 | Live run with the local key and a tunnel: tests 1 to 13 of the matrix (all keywords, 9 size and quality combinations, reference images, 5 at once, worker stopped, webhook endpoint down, dashboard resends); real error bodies and headers read with curl |
 | 20:02 | 20:10 | Second user, $0 user, admin report, phone width in a 390 px frame; cost of every generation recomputed outside the app and compared with `GET /v1/usage`; real payloads saved as fixtures with 4 tests; stale credit message fixed |
 | 20:10 | 20:17 | Full suite failed beside the running dev server (Inertia SSR through Vite): fixed; dev stack restarted; one more generation and a final reconciliation; checklist, verify-live and README updated |
+| 20:28 | 20:49 | Deployment to the VPS (own Linux user, PHP 8.3 next to the server's 8.2, FPM pool, Nginx server block, Postgres in Docker, systemd worker, cron scheduler, production key and webhook URL, ping answered 200). Times read from the file dates on the server |
+| 20:49 | 21:03 | Production run: reduced matrix (each keyword, 5 at once, reference images, duplicate webhooks, reconciler under cron), admin report against `GET /v1/usage`, charges recomputed in SQL, dashboard delivery log |
+| 21:03 | 21:20 | Docs: production results in verify-live, checklist, README, deploy-vps rewritten to what was actually done |
 
-Total: about 48 minutes for the build and about 33 minutes for the live run, wall-clock.
+Total: about 48 minutes for the build, about 33 minutes for the local live run and about
+52 minutes for deployment, the production run and its docs: about 2 hours 15 minutes,
+wall-clock.
 
 Not included: writing the plan (done before the first session), setting up the Pixelforge
-key and the tunnel, and what is still open: the deployment and the production run of the
-matrix.
+keys and the tunnel, pushing the repository, and the breaks between the sessions.
