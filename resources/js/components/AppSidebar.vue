@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { ImagePlus } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { ChartColumn, ImagePlus } from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -13,16 +14,18 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { report } from '@/routes/admin';
 import { index as generations } from '@/routes/generations';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Generate',
-        href: generations(),
-        icon: ImagePlus,
-    },
-];
+const page = usePage();
+
+const mainNavItems = computed<NavItem[]>(() => [
+    { title: 'Generate', href: generations(), icon: ImagePlus },
+    ...(page.props.auth.user.is_admin
+        ? [{ title: 'Cost report', href: report(), icon: ChartColumn }]
+        : []),
+]);
 </script>
 
 <template>
