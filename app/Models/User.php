@@ -22,6 +22,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property bool $is_admin
+ * @property int $balance_nano
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -36,6 +37,12 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
+    /** Defaults for a model that has not been loaded from the database yet. */
+    protected $attributes = [
+        'is_admin' => false,
+        'balance_nano' => 0,
+    ];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -46,6 +53,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'is_admin' => 'boolean',
+            'balance_nano' => 'integer',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];

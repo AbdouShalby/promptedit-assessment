@@ -2,7 +2,6 @@
 import { Head, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import Heading from '@/components/Heading.vue';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -99,9 +98,13 @@ const fieldClass =
             <Button type="submit" variant="outline">Show</Button>
         </form>
 
-        <Alert v-if="error" variant="destructive">
-            <AlertDescription>{{ error }}</AlertDescription>
-        </Alert>
+        <p
+            v-if="error"
+            class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+            role="alert"
+        >
+            {{ error }}
+        </p>
 
         <p
             v-if="days.length === 0 && !error"

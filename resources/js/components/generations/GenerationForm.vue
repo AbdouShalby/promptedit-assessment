@@ -28,7 +28,7 @@ const form = useForm({
     reference_images: [] as string[],
 });
 
-// Errors that do not belong to one field ("limit", "pricing", "uuid",
+// Errors that do not belong to one field ("balance", "limit", "pricing", "uuid",
 // "reference_images.0", ...) are read through this untyped view.
 const errors = computed(() => form.errors as Record<string, string>);
 
@@ -191,6 +191,7 @@ function submit() {
             :reference-images="form.reference_images"
         />
 
+        <InputError :message="errors.balance" />
         <InputError :message="errors.limit" />
         <InputError :message="errors.pricing" />
         <InputError :message="errors.uuid" />

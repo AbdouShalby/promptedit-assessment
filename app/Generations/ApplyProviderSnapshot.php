@@ -3,6 +3,7 @@
 namespace App\Generations;
 
 use App\Billing\CostCalculator;
+use App\Billing\CreditLedger;
 use App\Models\Generation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  *      snapshots are no-ops, so duplicates and reordering are harmless.
  *   2. The cost is written in the same transaction as the move to "succeeded",
  *      and that move can happen only once.
+ *      The user's credit is settled in that same transaction (hold released,
+ *      actual price charged), and the ledger's unique index refuses a repeat.
  *   3. A row that was never linked to a provider generation counts as rank 0
  *      even if we gave up on it locally. If Pixelforge did create it after
  *      all, the late snapshot still claims the row and the real cost is
@@ -26,6 +29,8 @@ use Illuminate\Support\Facades\Log;
  */
 class ApplyProviderSnapshot
 {
+    public function __construct(private readonly CreditLedger $credit) {}
+
     /** @param  array<string, mixed>  $snapshot  a Pixelforge generation object */
     public function apply(Generation $generation, array $snapshot): Generation
     {
@@ -114,6 +119,8 @@ class ApplyProviderSnapshot
                 'completed_at' => now(),
             ])->save();
 
+            $this->credit->release($row);
+
             return $row;
         });
     }
@@ -153,6 +160,9 @@ class ApplyProviderSnapshot
             'error_code' => null,
             'error_message' => null,
         ]);
+
+        $this->credit->release($row);
+        $this->credit->charge($row, $charge);
     }
 
     /** @param  array<string, mixed>  $snapshot */
@@ -167,6 +177,8 @@ class ApplyProviderSnapshot
             'charge_nano' => 0,
             'completed_at' => self::time($snapshot['completed_at'] ?? null) ?? now(),
         ]);
+
+        $this->credit->release($row);
     }
 
     private static function time(?string $iso8601): ?Carbon

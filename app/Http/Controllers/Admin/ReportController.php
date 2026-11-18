@@ -46,7 +46,7 @@ class ReportController extends Controller
             ->merge(collect($usageByDay ?? [])->filter(fn (int $nano) => $nano !== 0)->keys())
             ->unique()->sortDesc()->values();
 
-        $days = $dates->map(fn (string $date) => $this->presentDay($date, $rows->get($date, collect()), $usageByDay))->all();
+        $days = $dates->map(fn (int|string $date) => $this->presentDay((string) $date, $rows->get($date, collect()), $usageByDay))->all();
 
         $allRows = $rows->flatten(1);
 
@@ -64,7 +64,7 @@ class ReportController extends Controller
      * Grouped by billing_date: the UTC day the generation completed, which is
      * the day Pixelforge bills it on. Only succeeded generations have one.
      *
-     * @return Collection<string, Collection<int, array<string, mixed>>> keyed by date
+     * @return Collection<array-key, Collection<int, array{date: string, user: string, generations: int, charged_nano: int, provider_cost_nano: int}>> keyed by date
      */
     private function rowsPerDayAndUser(Carbon $start, Carbon $end): Collection
     {
@@ -79,7 +79,7 @@ class ReportController extends Controller
             ->get()
             ->map(fn (object $row) => [
                 'date' => Carbon::parse($row->billing_date)->toDateString(),
-                'user' => $users[$row->user_id] ?? 'user #'.$row->user_id,
+                'user' => (string) ($users[$row->user_id] ?? 'user #'.$row->user_id),
                 'generations' => (int) $row->generations,
                 // SUM over BIGINT comes back from Postgres as a numeric string: cast, never float.
                 'charged_nano' => (int) $row->charged_nano,

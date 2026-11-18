@@ -26,7 +26,7 @@ class GenerationPageTest extends TestCase
         parent::setUp();
 
         $this->withoutVite();   // page tests must not depend on a frontend build
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['balance_nano' => 10_000_000_000]);   // $10 of credit
         $this->fakePricing();
         Queue::fake();
     }
@@ -95,7 +95,7 @@ class GenerationPageTest extends TestCase
         $form = $this->form();
         $this->actingAs($this->user)->post('/generations', $form);
 
-        $this->actingAs(User::factory()->create())->post('/generations', $form)->assertSessionHasErrors('uuid');
+        $this->actingAs(User::factory()->create(['balance_nano' => 10_000_000_000]))->post('/generations', $form)->assertSessionHasErrors('uuid');
 
         $this->assertSame(1, Generation::count());
     }
@@ -192,6 +192,8 @@ class GenerationPageTest extends TestCase
             ->missing('generations.data.0.provider_cost_nano')
             ->where('options.sizes', ['1024x1024', '1536x1024', '1024x1536'])
             ->where('options.qualities', ['low', 'medium', 'high'])
+            ->where('balance', '$10.0000')
+            ->where('credit_pack', '$5.0000')
         );
     }
 

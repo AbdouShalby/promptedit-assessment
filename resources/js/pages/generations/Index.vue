@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import CreditBalance from '@/components/generations/CreditBalance.vue';
 import GenerationCard from '@/components/generations/GenerationCard.vue';
 import GenerationForm from '@/components/generations/GenerationForm.vue';
 import Heading from '@/components/Heading.vue';
@@ -23,6 +24,8 @@ const props = defineProps<{
     generations: Paginated<Generation>;
     options: FormOptions | null;
     limits: FormLimits;
+    balance: string;
+    credit_pack: string;
 }>();
 
 // Live status: re-fetch the list from our own server every 2 seconds, but
@@ -33,7 +36,7 @@ const hasInFlight = computed(() =>
 
 const { start, stop } = usePoll(
     2000,
-    { only: ['generations'] },
+    { only: ['generations', 'balance'] },
     { autoStart: false },
 );
 
@@ -53,7 +56,13 @@ watch(hasInFlight, (inFlight) => (inFlight ? start() : stop()), {
                     title="Generate an image"
                     description="You pay what the image costs to make, plus 25%."
                 />
-                <GenerationForm :options="options" :limits="limits" />
+                <div class="space-y-5">
+                    <CreditBalance
+                        :balance="balance"
+                        :credit-pack="credit_pack"
+                    />
+                    <GenerationForm :options="options" :limits="limits" />
+                </div>
             </div>
         </section>
 
