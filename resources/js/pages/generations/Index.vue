@@ -61,7 +61,11 @@ watch(hasInFlight, (inFlight) => (inFlight ? start() : stop()), {
                         :balance="balance"
                         :credit-pack="credit_pack"
                     />
-                    <GenerationForm :options="options" :limits="limits" />
+                    <GenerationForm
+                        :options="options"
+                        :limits="limits"
+                        :balance="balance"
+                    />
                 </div>
             </div>
         </section>

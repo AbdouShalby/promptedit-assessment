@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { Plus, X } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import CostEstimate from '@/components/generations/CostEstimate.vue';
 import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -14,6 +14,7 @@ import type { FormLimits, FormOptions } from '@/types/generations';
 const props = defineProps<{
     options: FormOptions | null;
     limits: FormLimits;
+    balance: string;
 }>();
 
 // The uuid is created once per form and sent with the request. The server
@@ -31,6 +32,12 @@ const form = useForm({
 // Errors that do not belong to one field ("balance", "limit", "pricing", "uuid",
 // "reference_images.0", ...) are read through this untyped view.
 const errors = computed(() => form.errors as Record<string, string>);
+
+// "Not enough credit" is out of date as soon as the balance changes (Buy credits).
+watch(
+    () => props.balance,
+    () => form.clearErrors('balance' as keyof typeof form.errors),
+);
 
 const promptLength = computed(() => [...form.prompt].length);
 const canAddReference = computed(
