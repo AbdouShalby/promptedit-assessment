@@ -21,7 +21,8 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
+        // The starter kit's dashboard is replaced by the generations page.
         $response = $this->get(route('dashboard'));
-        $response->assertOk();
+        $response->assertRedirect(route('generations.index'));
     }
 }
