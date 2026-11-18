@@ -7,7 +7,7 @@ use App\Generations\GenerationStatus;
 use App\Models\Generation;
 use App\Pixelforge\PixelforgeClient;
 use App\Pixelforge\PixelforgeException;
-use DateTime;
+use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -42,7 +42,7 @@ class SubmitGeneration implements ShouldQueue
     public function __construct(public int $generationId) {}
 
     /** Releases do not count against a fixed number of tries; the job is bounded by time instead. */
-    public function retryUntil(): DateTime
+    public function retryUntil(): DateTimeInterface
     {
         return now()->addSeconds(config('pixelforge.submit_deadline_seconds') + 300);
     }
@@ -103,7 +103,7 @@ class SubmitGeneration implements ShouldQueue
             $code === 'daily_limit_exceeded' => $snapshots->failWithoutProvider($generation, $code, self::MESSAGE_DAILY_LIMIT),
 
             // Same key, different params: a generation exists under this key, so do not promise "not charged".
-            $code === 'idempotency_key_reused' => $this->reject($snapshots, $generation, $e, self::MESSAGE_UNCONFIRMED),
+            $code === 'idempotency_key_reused' => $this->reject($snapshots, $generation, $e, self::MESSAGE_UNCONFIRMED, nothingWasCreated: false),
 
             // validation_failed, invalid_api_key, ...: our bug or misconfiguration.
             default => $this->reject($snapshots, $generation, $e, self::MESSAGE_REJECTED),
@@ -135,17 +135,22 @@ class SubmitGeneration implements ShouldQueue
     private function giveUp(ApplyProviderSnapshot $snapshots, Generation $generation): void
     {
         $generation->submit_outcome_unknown
-            ? $snapshots->failWithoutProvider($generation, 'submission_unconfirmed', self::MESSAGE_UNCONFIRMED)
+            ? $snapshots->failWithoutProvider($generation, 'submission_unconfirmed', self::MESSAGE_UNCONFIRMED, nothingWasCreated: false)
             : $snapshots->failWithoutProvider($generation, 'submission_abandoned', self::MESSAGE_BUSY);
     }
 
-    private function reject(ApplyProviderSnapshot $snapshots, Generation $generation, PixelforgeException $e, string $message): void
-    {
+    private function reject(
+        ApplyProviderSnapshot $snapshots,
+        Generation $generation,
+        PixelforgeException $e,
+        string $message,
+        bool $nothingWasCreated = true,
+    ): void {
         Log::error('Pixelforge rejected a submission', [
             'generation' => $generation->uuid, 'code' => $e->errorCode, 'status' => $e->httpStatus, 'message' => $e->getMessage(),
         ]);
 
-        $snapshots->failWithoutProvider($generation, $e->errorCode, $message);
+        $snapshots->failWithoutProvider($generation, $e->errorCode, $message, $nothingWasCreated);
     }
 
     /** Framework backstop: the job itself failed (retryUntil passed or repeated exceptions). */
@@ -156,7 +161,7 @@ class SubmitGeneration implements ShouldQueue
         // We cannot tell here whether a create call went through, so make no promise about the charge.
         if ($generation !== null) {
             app(ApplyProviderSnapshot::class)
-                ->failWithoutProvider($generation, 'submission_unconfirmed', self::MESSAGE_UNCONFIRMED);
+                ->failWithoutProvider($generation, 'submission_unconfirmed', self::MESSAGE_UNCONFIRMED, nothingWasCreated: false);
         }
     }
 }

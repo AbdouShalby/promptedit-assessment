@@ -66,7 +66,7 @@ class ApplyProviderSnapshot
             }
 
             $row->provider_id = $providerId;
-            $row->rates ??=$snapshot['rates'] ?? null;
+            $row->rates ??= $snapshot['rates'] ?? null;
             $row->started_at ??= self::time($snapshot['started_at'] ?? null);
             $row->last_checked_at = now();
 
@@ -87,10 +87,18 @@ class ApplyProviderSnapshot
     /**
      * Final failure decided by us, for a request Pixelforge never accepted
      * (rejected, or given up on). Only a still-pending row can be failed this way.
+     *
+     * $nothingWasCreated = false means a create call may have gone through
+     * (timeout). The cost then stays null ("unknown") instead of 0, and the UI
+     * makes no "not charged" claim.
      */
-    public function failWithoutProvider(Generation $generation, string $errorCode, string $message): Generation
-    {
-        return DB::transaction(function () use ($generation, $errorCode, $message) {
+    public function failWithoutProvider(
+        Generation $generation,
+        string $errorCode,
+        string $message,
+        bool $nothingWasCreated = true,
+    ): Generation {
+        return DB::transaction(function () use ($generation, $errorCode, $message, $nothingWasCreated) {
             $row = Generation::whereKey($generation->getKey())->lockForUpdate()->firstOrFail();
 
             if ($row->status !== GenerationStatus::Pending) {
@@ -101,8 +109,8 @@ class ApplyProviderSnapshot
                 'status' => GenerationStatus::Failed,
                 'error_code' => $errorCode,
                 'error_message' => $message,
-                'provider_cost_nano' => 0,
-                'charge_nano' => 0,
+                'provider_cost_nano' => $nothingWasCreated ? 0 : null,
+                'charge_nano' => $nothingWasCreated ? 0 : null,
                 'completed_at' => now(),
             ])->save();
 

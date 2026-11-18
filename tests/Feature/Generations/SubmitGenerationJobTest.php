@@ -145,6 +145,7 @@ class SubmitGenerationJobTest extends TestCase
         $this->assertSame('submission_unconfirmed', $generation->error_code);
         $this->assertSame(SubmitGeneration::MESSAGE_UNCONFIRMED, $generation->error_message);
         $this->assertStringNotContainsStringIgnoringCase('not charged', $generation->error_message);
+        $this->assertNull($generation->charge_nano);   // unknown, not zero
     }
 
     public function test_content_policy_rejection_fails_immediately_with_a_clear_message(): void

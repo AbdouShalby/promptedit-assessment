@@ -25,6 +25,7 @@ final class Pricing
         public readonly array $reasoningTokens,
     ) {}
 
+    /** @param  array<string, mixed>  $payload  the decoded GET /v1/pricing response */
     public static function fromApi(array $payload): self
     {
         $tokens = $payload['tokens'] ?? null;

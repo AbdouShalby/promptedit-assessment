@@ -113,6 +113,7 @@ class GenerationController extends Controller
             'uuid' => $generation->uuid,
             'status' => $generation->status->value,
             'status_label' => $generation->status->label(),
+            'waiting_for_slot' => $generation->status === GenerationStatus::Pending,
             'is_final' => $generation->status->isFinal(),
             'prompt' => $generation->prompt,
             'size' => $generation->size,
@@ -121,6 +122,7 @@ class GenerationController extends Controller
             'estimated_min' => Nano::formatCost($generation->estimated_min_charge_nano),
             'estimated_max' => Nano::formatCost($generation->estimated_max_charge_nano),
             'estimated_max_exact' => Nano::toDecimal($generation->estimated_max_charge_nano),
+            // null = not known yet (in flight), or never confirmed by Pixelforge.
             'charged' => $generation->charge_nano === null ? null : Nano::formatCost($generation->charge_nano),
             'charged_exact' => $generation->charge_nano === null ? null : Nano::toDecimal($generation->charge_nano),
             'image_url' => $imageExpired ? null : $generation->image_url,
